@@ -34,6 +34,9 @@ import io
 import os
 from django.http import FileResponse
 from pptx.enum.text import PP_ALIGN
+from google import genai
+from google.genai import types
+
 
 
 
@@ -125,37 +128,45 @@ def get_voices(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])  # Enforce authentication
 def generate_script(request):
-    client = OpenAI(api_key=settings.CHATGPT_API_KEY)
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
     data = request.data
+
     avatar_name = data.get("selectedAvatar")
     content_prompt = data.get("contentPrompt") or "Provide a default prompt here."
 
     pre_prompt = (
         "You are a university-level instructional designer. Use the following content " + 
-        "prompt to create an educational video script that adheres to sound instructional " +
-        "design principles, and only includes text only. Please just have raw text, no headers of text at all. " + 
-        "Do not have any indicators on who is speaking (no [Instructor]: label anywhere please, just the raw text).  "
+        "prompt to create an educational video script that is to be read by a professor who is giving a lecture to their students and adheres to sound instructional " +
+        "design principles, and only includes text only. Please just have raw text without any transitions, intros, paragraph headings. Only include text that is to be read aloud by the professor with strictly no headers of text at all and no **(transitions)** of any type. " + 
+        "Do not have any indicators on who is speaking (no [Instructor]: label anywhere please, just the raw text)."
     )
-    messages = [
-        {"role": "system", "content": f"Generating a script with text only."},
-        {"role": "user", "content": pre_prompt + content_prompt},
-    ]
 
     try:
-        completion = client.chat.completions.create(model="gpt-3.5-turbo", messages=messages)
-        generated_script = completion.choices[0].message.content
+
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents = content_prompt,
+            config=types.GenerateContentConfig( 
+                system_instruction=pre_prompt,
+            )
+        )
+
+        generated_response = response.text
+
+        print(response.text)
         return JsonResponse(
             {
                 "message": "Script generated successfully",
                 "avatar_name": avatar_name,
-                "generated_script": generated_script,
+                "generated_script": generated_response
             },
-            status=200,
+            status=200
         )
     except Exception as e:
+        print(f"Error details {e}")
         return JsonResponse({"error": str(e)}, status=500)
 
-
+    
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])  # Enforce authentication
@@ -164,9 +175,11 @@ def generate_slide_structure(request):
     Generate a JSON structure for slides using OpenAI's GPT API based on a script.
     """
     print(" starting slide structure")
-    client = OpenAI(api_key=settings.CHATGPT_API_KEY)
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+
     data = request.data
-    script = data.get("contentPrompt")
+    content_prompt = data.get("contentPrompt")
+    
     try:
         pre_prompt = (
             "You are a university-level instructional designer tasked with creating a JSON representation of slides "
@@ -197,10 +210,7 @@ def generate_slide_structure(request):
             "Script content follows below:\n\n"
         )
 
-        messages = [
-            {"role": "system", "content": "You are a JSON generator for PowerPoint slides with a rigorous format."},
-            {"role": "user", "content": pre_prompt + script},
-        ]
+        system_instructions = "You are a JSON generator for PowerPoint slides with a rigorous format."
 
 
         # Retry logic
@@ -208,8 +218,14 @@ def generate_slide_structure(request):
         for attempt in range(max_attempts):
             try:
                 print("attempting chatgpt submission")
-                completion = client.chat.completions.create(model="gpt-3.5-turbo", messages=messages)
-                generated_script_outline = completion.choices[0].message.content
+                response = client.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents = pre_prompt + content_prompt,
+                    config=types.GenerateContentConfig( 
+                        system_instruction=system_instructions,
+            )
+        )
+                generated_script_outline = response.text
                 slides_json = json.loads(generated_script_outline)
 
                 if "slides" in slides_json and len(slides_json["slides"]) > 1:
@@ -258,28 +274,31 @@ def get_video_link(request):
         "x-api-key": api_key
     }
 
-    try:
-        print(f"sending request to heygen with URL: {url}")  # Log the full URL
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        print(f"Received response from heygen: {response.status_code}, {response.text}")  # Log the full response
 
-        response_json = response.json()
-        print(f"Response JSON: {response_json}")  # Log the JSON response
+    return JsonResponse({'video_url': url}, status=200) 
 
-        status = response_json.get("data", {}).get("status")
-        video_url = response_json.get("data", {}).get("video_url")
+    # try:
+    #     print(f"sending request to heygen with URL: {url}")  # Log the full URL
+    #     response = requests.get(url, headers=headers)
+    #     response.raise_for_status()
+    #     print(f"Received response from heygen: {response.status_code}, {response.text}")  # Log the full response
 
-        if status == "completed":
-            print(f"Video completed, URL: {video_url}")
-            return JsonResponse({'video_url': video_url}, status=200)
-        else:
-            print(f"Video not ready, status: {status}")
-            return JsonResponse({'status': status, 'message': 'Video is not ready yet'}, status=202)
+    #     response_json = response.json()
+    #     print(f"Response JSON: {response_json}")  # Log the JSON response
 
-    except requests.exceptions.RequestException as e:
-        print(f"Request error: {str(e)}")  # Log the exception error
-        return JsonResponse({'error': str(e)}, status=500)
+    #     status = response_json.get("data", {}).get("status")
+    #     video_url = response_json.get("data", {}).get("video_url")
+
+    #     if status == "completed":
+    #         print(f"Video completed, URL: {video_url}")
+    #         return JsonResponse({'video_url': video_url}, status=200)
+    #     else:
+    #         print(f"Video not ready, status: {status}")
+    #         return JsonResponse({'status': status, 'message': 'Video is not ready yet'}, status=202)
+
+    # except requests.exceptions.RequestException as e:
+    #     print(f"Request error: {str(e)}")  # Log the exception error
+    #     return JsonResponse({'error': str(e)}, status=500)
 
 
 @api_view(['GET'])
@@ -292,7 +311,7 @@ def get_user_profile(request):
     return Response(user_data)
 
 
-'''
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])  # Enforce authentication
 def generate_video(request):
@@ -309,7 +328,7 @@ def generate_video(request):
     print("Returning simulated response:", simulated_response)
     return JsonResponse(simulated_response, status=200)
 
-'''
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -422,71 +441,72 @@ def create_slide(prs, slide_title, bullet_points, is_title_slide):
 
     return slide
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])  # Enforce authentication
-def generate_video(request):
-    print("starting video generation")
-    url = "https://api.heygen.com/v2/video/generate"
-    api_key = settings.HEYGEN_API_KEY
-    script = request.data.get("script")
-    title = request.data.get("title")
-    avatar = request.data.get("selectedAvatar")
-    voice = request.data.get("selectedVoice")
+# @api_view(['POST'])
+# @permission_classes([IsAuthenticated])  # Enforce authentication
+# def generate_video(request):
+#     print("starting video generation")
+#     url = "https://api.heygen.com/v2/video/generate"
+#     api_key = settings.HEYGEN_API_KEY
+#     script = request.data.get("script")
+#     title = request.data.get("title")
+#     avatar = request.data.get("selectedAvatar")
+#     voice = request.data.get("selectedVoice")
 
 
-    headers = {
-        "accept": "application/json",
-        "content-type": "application/json",
-        "x-api-key": api_key
-    }
+#     headers = {
+#         "accept": "application/json",
+#         "content-type": "application/json",
+#         "x-api-key": api_key
+#     }
 
-    # Extract data from the request
-    script = request.data.get("script")
-    title = request.data.get("title")
-    avatar = request.data.get("selectedAvatar")
-    voice = request.data.get("selectedVoice")
+#     # Extract data from the request
+#     script = request.data.get("script")
+#     title = request.data.get("title")
+#     avatar = request.data.get("selectedAvatar")
+#     voice = request.data.get("selectedVoice")
 
-    print("Avatar Voice ID: " + str(voice))
-    print("Avatar ID: " + str(avatar))
+#     print("Avatar Voice ID: " + str(voice))
+#     print("Avatar ID: " + str(avatar))
 
-    payload = {
-        "caption": False,
-        "dimension": {"width": 1280, "height": 720},
-        "title": title,
-        "video_inputs": [
-            {
-                "character": {
-                    "type": "avatar",
-                    "avatar_id": avatar,
-                    "scale": 1.0
-                },
-                "voice": {
-                    "type": "text",
-                    "voice_id": voice,  # Replace with actual voice ID
-                    "input_text": script
-                }
-            }
-        ]
-    }
+#     payload = {
+#         "caption": False,
+#         "dimension": {"width": 1280, "height": 720},
+#         "title": title,
+#         "video_inputs": [
+#             {
+#                 "character": {
+#                     "type": "avatar",
+#                     "avatar_id": avatar,
+#                     "scale": 1.0
+#                 },
+#                 "voice": {
+#                     "type": "text",
+#                     "voice_id": voice,  # Replace with actual voice ID
+#                     "input_text": script
+#                 }
+#             }
+#         ]
+#     }
 
-    headers = {
-        "accept": "application/json",
-        "content-type": "application/json",
-        "x-api-key": api_key
-    }
+#     headers = {
+#         "accept": "application/json",
+#         "content-type": "application/json",
+#         "x-api-key": api_key
+#     }
 
-    response = requests.post(url, json=payload, headers=headers)
-    print(response.text)
+#     response = requests.post(url, json=payload, headers=headers)
+#     print(response.text)
 
-    try:
-        print("parsing responce")
-        response = requests.post(url, json=payload, headers=headers)
-        response.raise_for_status()
+#     try:
+#         print("parsing responce")
+#         response = requests.post(url, json=payload, headers=headers)
+#         response.raise_for_status()
 
-        response_json = response.json()
-        return JsonResponse(response_json, status=response.status_code)
-    except requests.exceptions.RequestException as e:
-        return JsonResponse({'error': str(e)}, status=500)
+#         response_json = response.json()
+#         return JsonResponse(response_json, status=response.status_code)
+#     except requests.exceptions.RequestException as e:
+#         print(f"video generation error details: {e}")
+#         return JsonResponse({'error': str(e)}, status=500)
 
 
 
