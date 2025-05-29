@@ -36,7 +36,7 @@ from django.http import FileResponse
 from pptx.enum.text import PP_ALIGN
 from google import genai
 from google.genai import types
-
+import re
 
 
 
@@ -153,7 +153,6 @@ def generate_script(request):
 
         generated_response = response.text
 
-        print(response.text)
         return JsonResponse(
             {
                 "message": "Script generated successfully",
@@ -207,6 +206,7 @@ def generate_slide_structure(request):
             "   - If the script contains insufficient content for multiple slides, create additional slides using placeholders.\n"
             "3. Ensure all titles are concise, and the bullet points are clear and concise summaries of the script content.\n"
             "4. Ensure the JSON structure is valid and error-free.\n\n"
+            "5. Absolutely no markdown code blocks"
             "Script content follows below:\n\n"
         )
 
@@ -214,30 +214,39 @@ def generate_slide_structure(request):
 
 
         # Retry logic
-        max_attempts = 5
+        max_attempts = 2
         for attempt in range(max_attempts):
             try:
-                print("attempting chatgpt submission")
+                print("attempting genimi slide generation submission")
                 response = client.models.generate_content(
                     model="gemini-2.0-flash",
                     contents = pre_prompt + content_prompt,
                     config=types.GenerateContentConfig( 
                         system_instruction=system_instructions,
-            )
-        )
-                generated_script_outline = response.text
-                slides_json = json.loads(generated_script_outline)
+                    )
+                )
+                
+                generated_slide_text = response.text
 
+                # gemini tends to print markdown code blocks, regex below removes them
+                match = re.search(r'```json\s*(.*?)\s*```', generated_slide_text, re.DOTALL)
+                if match:
+                    json_string = match.group(1)
+                else:
+                    json_string = generated_slide_text.strip()
+
+                slides_json = json.loads(json_string)
+
+                # ensure slide content is in correct format
                 if "slides" in slides_json and len(slides_json["slides"]) > 1:
-                    #print(slides_json)
                     return JsonResponse(
                         {
                             "message": "Script outline generated successfully",
-                            "generated_script_outline": generated_script_outline,
+                            "generated_script_outline": json_string,
                         },
                         status=200,
                     )
-                print("Response contained only one slide. Re-prompting ChatGPT...")
+                print("Response contained only one slide. Re-prompting Gemini...")
 
             except (json.JSONDecodeError, KeyError) as e:
                 print(f"Error parsing response (Attempt {attempt + 1}): {e}")
@@ -274,7 +283,7 @@ def get_video_link(request):
         "x-api-key": api_key
     }
 
-
+    # uncomment try block and delete the below line to have true HeyGen video generation, 
     return JsonResponse({'video_url': url}, status=200) 
 
     # try:
