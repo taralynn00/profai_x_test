@@ -1,11 +1,18 @@
-import React from "react";
+import { createContext, useEffect, useState} from 'react';
 import axios from "axios";
-import { ACCESS_TOKEN } from "../../constants";
-import { isTokenExpired, refreshToken } from "../../util/auth";
-import setAuthToken from "../../util/setAuthToken";
+import { ACCESS_TOKEN } from '../constants';
+import { isTokenExpired, refreshToken } from '../util/auth.js'
+import setAuthToken from '../util/setAuthToken';
 
-const AvatarList = ({ setJsonData, setError, setLoading, loading }) => {
-  const fetchCSRFToken = async () => {
+
+export const HeygenContext = createContext();
+
+export const HeygenProvider = ({children}) => {
+    const [avatars, setAvatars] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [message, setMessage] = useState(null);
+
+    const fetchCSRFToken = async () => {
     try {
       const response = await axios.get('http://127.0.0.1:8000/api/get_csrf_token/', {
         withCredentials: true,
@@ -15,9 +22,9 @@ const AvatarList = ({ setJsonData, setError, setLoading, loading }) => {
       console.error('Error fetching CSRF token:', error);
       throw new Error('Failed to fetch CSRF token');
     }
-  };
+    };
 
-  const fetchAvatars = async () => {
+    const fetchAvatars = async () => {
     console.log("Starting fetch operation...");
     setLoading(true);
 
@@ -30,7 +37,7 @@ const AvatarList = ({ setJsonData, setError, setLoading, loading }) => {
       }
 
       if (!accessToken) {
-        setError("User not authenticated. Please log in.");
+        setMessage("User not authenticated. Please log in.");
         return;
       }
 
@@ -52,9 +59,9 @@ const AvatarList = ({ setJsonData, setError, setLoading, loading }) => {
 
       const data = response.data;
       console.log("Fetch successful:", data);
-      setJsonData(JSON.stringify(data, null, 2));
+      setAvatars(JSON.stringify(data, null, 2));
     } catch (error) {
-      setError(error.message);
+      setMessage("Error loading Heygen Avatars");
       console.error("Error fetching avatars:", error);
     } finally {
       setLoading(false);
@@ -62,13 +69,13 @@ const AvatarList = ({ setJsonData, setError, setLoading, loading }) => {
     }
   };
 
-  return (
-    <div>
-      <button onClick={fetchAvatars} disabled={loading}>
-        {loading ? "Loading..." : "Fetch Avatars"}
-      </button>
-    </div>
-  );
-};
+  useEffect(() => {
+    fetchAvatars();
+  }, []);
 
-export default AvatarList;
+  return (
+    <HeygenContext.Provider value={{ avatars, loading, message, setMessage }}>
+        {children}
+    </HeygenContext.Provider>
+  );
+}

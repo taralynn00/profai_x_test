@@ -13,7 +13,7 @@ import FeaturesSection from './components/FeaturesSection/FeaturesSection.jsx';
 import Dashboard from './components/Dashboard/Dashboard.jsx';
 import TestimonialsSection from './components/TestimonialsSection/TestimonialsSection.jsx'
 import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute.jsx';
-
+import { HeygenProvider } from './context/HeygenContext.jsx';
 import GetStarted from './components/Dashboard/GetStarted.jsx';
 
 
@@ -51,7 +51,12 @@ function App() {
           <Route path="/login" element={<SigninForm />} />
           <Route
               path="/Dashboard/*"
-              element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
+              element={
+                <ProtectedRoute>
+                  <HeygenProvider>
+                    <Dashboard />
+                  </HeygenProvider>
+                </ProtectedRoute>}
               />
               console.log("Dashboard route hit");
 

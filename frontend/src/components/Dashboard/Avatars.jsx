@@ -1,47 +1,44 @@
-import React, { useState, useEffect } from "react";
-import AvatarList from "./AvatarList"; // Adjusted for one-level up directory
+import React, { useState, useEffect, useContext } from "react";
 import LoadingIndicator from "../LoadingIndicator/LoadingIndicator"; // Import LoadingIndicator component
 import "./Avatars.css"; // Import the CSS file for styling
+import { HeygenContext } from "../../context/HeygenContext";
 
 const Avatars = () => {
-  const [jsonData, setJsonData] = useState("");
   const [avatarNames, setAvatarNames] = useState([]); // State for avatar names
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false); // Loading state
+  // const [message, setMessage] = useState(null);
+  const { avatars, loading, message, setMessage } = useContext(HeygenContext)
 
   useEffect(() => {
     try {
-      if (jsonData) {
-        const parsed = JSON.parse(jsonData);
+      if(loading) {
+        setMessage("Loading HeyGen Avatars")
+      }
+      else  {
+        const parsed = JSON.parse(avatars);
         const names =
           parsed.data && parsed.data.avatars
             ? parsed.data.avatars.map((avatar) => avatar.avatar_name)
             : [];
         setAvatarNames(names);
-        setError(null);
+        setMessage(null);
       }
     } catch (parseError) {
-      setError("Failed to parse JSON data");
+      setMessage("Error: Failed to parse JSON data");
       setAvatarNames([]);
     }
-  }, [jsonData]);
+  }, [avatars]);
+  
 
   return (
     <div className="avatars-container">
       <h1>Available Avatars</h1>
 
-      {error && <div>Error: {error}</div>}
+      {message && <div>{message}</div>}
 
       {loading ? (
         <LoadingIndicator />
       ) : (
         <div>
-          <AvatarList
-            setJsonData={setJsonData}
-            setError={setError}
-            setLoading={setLoading}
-            loading={loading}
-          />
           {avatarNames.length > 0 ? (
             <ul>
               {avatarNames.map((name, index) => (

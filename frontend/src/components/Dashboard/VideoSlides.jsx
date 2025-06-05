@@ -4,6 +4,7 @@ import axios from 'axios';
 import { ACCESS_TOKEN } from "../../constants";
 import { isTokenExpired, refreshToken } from "../../util/auth";
 import setAuthToken from "../../util/setAuthToken";
+import "./VideoSlides.css"
 
 const VideoSlides = () => {
   const location = useLocation();
@@ -275,7 +276,7 @@ const VideoSlides = () => {
         <div>
           <h3>Generated Script Outline</h3>
           {parsedOutline.slides.map((slide, index) => (
-            <div key={index}>
+            <div className="slide-content" key={index}>
               <input
                 type="text"
                 value={slide.title}
@@ -284,6 +285,7 @@ const VideoSlides = () => {
               <textarea
                 value={slide.content.join('\n')}
                 onChange={(e) => handleContentChange(index, e.target.value)}
+                className=""
               />
             </div>
           ))}

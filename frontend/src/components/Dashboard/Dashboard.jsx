@@ -12,6 +12,7 @@ import Profile from './Profile';
 import './Dashboard_styles.css';
 import ProjectSubmission from './ProjectSubmission';
 import VideoSlides from './VideoSlides';
+// import { HeygenProvider } from '../../context/HeygenContext';
 
 const Dashboard = () => {
   const token = localStorage.getItem("authToken");

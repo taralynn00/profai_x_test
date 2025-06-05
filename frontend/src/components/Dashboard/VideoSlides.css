@@ -121,3 +121,10 @@
     background: linear-gradient(to bottom, #3e8e7e, #2b4f50); /* Darker teal on hover */
     transform: scale(1.05);
   }
+
+  .slide-content {
+    width: 100%;
+    height: fit-content;
+    /* border: 2px solid black; */
+  }
+
