@@ -3,9 +3,15 @@
 import React from 'react';
 
 const Templates = () => {
+  //const [isApproved, setIsApproved] = useState(false);
+
   return (
     <div>
-      <h2>Templates Component</h2>
+      <h2>Available Templates</h2>
+      <p>Select a template from below or create your own.</p>
+        <div className="button-group">
+            <button className="generate-template-button">Create Template</button>
+          </div>
     </div>
   );
 };
